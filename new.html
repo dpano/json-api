@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+        integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <title>Page Title</title>
+</head>
+
+<body>
+
+    <h1>Clustering POC</h1>
+    <div class="d-flex align-items-center">
+        <div id="container" class="p-2"></div>
+        <div class="p-2">
+            <div id="legend"></div>
+        </div>
+    </div>
+</body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.9.2/d3.min.js"></script>
+<!-- <script type="javascript" src="./cluster.js"></script> -->
+<script>
+    var margin = { top: 20, right: 20, bottom: 20, left: 20 },
+        width = 400 - margin.left - margin.right,
+        height = 400 - margin.top - margin.bottom;
+    d3.json("https://raw.githubusercontent.com/dpano/json-api/main/response_9023_s_1.0.json").then(function (rawData) {
+
+        let data = rawData.pca_cluster_centroids.sort((a, b) => b.size - a.size);
+        console.log(data)
+
+        // var c10 = d3.scale.category10();
+        var svg = d3.select("#container")
+            .append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform",
+                "translate(" + margin.left + "," + margin.top + ")");
+        const maxRadius = 50;
+        const size = data.map(d => d.size)
+        const rMax = d3.max(size);
+        const rMin = d3.max(size);
+        const xArray = data.map(d => d.x);
+        const yArray = data.map(d => d.y);
+        const xMin = d3.min(xArray);
+        const xMax = d3.max(xArray);
+        const yMin = d3.min(yArray);
+        const yMax = d3.max(yArray);
+        var color = d3.scaleSequential().domain([0, 6])
+            .interpolator(d3.interpolateCool);
+        var scale = {
+            x: d3.scaleLinear()
+                .domain([xMin, xMax])
+                .range([0, width]),
+            y: d3.scaleLinear()
+                .domain([yMin, yMax])
+                .range([0, height]),
+            radius: d3.scaleLinear()
+                .domain([0, rMax])
+                .range([0, 50])
+        }
+        data = data.map((d, idx) => {
+            return { x: scale.x(d.x), y: scale.y(d.y), r: scale.radius(d.size), cluster: d.cluster }
+        });
+
+
+        /**
+         * Simulation
+         * 
+         * */
+        var simulation = d3.forceSimulation()
+            .force('forceX', d3.forceX(d => d.x))
+            .force('forceY', d3.forceY(d => d.y))
+            .force('collide', d3.forceCollide(d => d.r + 2))
+
+
+        var node = svg.append("g")
+            .attr("class", "nodes")
+            .selectAll("circle")
+            .data(data)
+            .enter().append("circle")
+            .attr("r", function (d) { return d.r })
+            .style("opacity", .7)
+            .attr("fill", function (d, i) {
+                return color(d.cluster)
+            })
+            .on("click", (d) => console.log(d, { x: d.x, y: d.y, r: d.size }))
+
+        var ticked = function () {
+            node.attr("cx", function (d) {
+                return d.x = Math.max(maxRadius, Math.min(width - maxRadius, d.x));
+            })
+                .attr("cy", function (d) {
+                    return d.y = Math.max(maxRadius, Math.min(height - maxRadius, d.y));
+                })
+        }
+
+        simulation
+            .nodes(data)
+            .on("tick", ticked);
+
+
+        /**
+        *  LEGENDS
+        *
+        */
+        const legendWidth = 400;
+        const legendHeight = 300;
+        const legendsRadius = 6;
+        // select the svg area
+        var legend = d3.select("#legend")
+            .append("svg")
+            .attr("width", legendWidth)
+            .attr("height", legendHeight)
+            .append("g")
+            .attr("transform",
+                "translate(" + margin.left + "," + margin.top + ")");
+
+        const lg = legend.selectAll('legends')
+            .data(data)
+            .enter();
+        lg.append("circle")
+            .attr("class", "legends")
+            .attr("cx", function (d) {
+                return legendsRadius;
+            })
+            .attr("cy", (d, idx) => {
+                return 5 + idx * 20
+            })
+            .attr("r", (d) => {
+                return legendsRadius
+            })
+            .attr("fill", function (d, i) {
+                return color(d.cluster)
+            }).style("opacity", .7);
+        lg.append("text")
+            .attr("x", 15)
+            .attr("y", (d, idx) => 6 + idx * 20)
+            .text((d) => d.cluster + '')
+            .style("font-size", "15px")
+            .attr("alignment-baseline", "middle");
+
+
+    });
+
+
+
+</script>
+
+</html>
